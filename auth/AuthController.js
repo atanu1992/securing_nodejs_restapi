@@ -2,9 +2,11 @@ var express = require('express');
 var router = express.Router();
 var bodyParser = require('body-parser');
 const Joi = require('@hapi/joi');
+var config = require('../config');
 let check = require('../validations/auth');
+const encryption = require('./encrypt_dycrpt');
 
-var VerifyToken = require('./VerifyToken');
+var verify_token = require('./VerifyToken');
 
 router.use(bodyParser.urlencoded({ extended: false }));
 router.use(bodyParser.json());
@@ -25,28 +27,38 @@ router.post('/login', function(req, res) {
     if (!user) return res.status(404).send('No user found.');
     // check if the password is valid
     var passwordIsValid = bcrypt.compareSync(req.body.password, user.password);
-    if (!passwordIsValid) return res.status(401).send({ status: false, message: 'incorrect password' });
+    if (!passwordIsValid) 
+      return res.status(401).send({ status: false, message: 'incorrect password' });
+    
+      let time = new Date().getTime();
+      let loginId = Math.random().toString(36).substring(2, 15) + String(time).substring(2,10) + Math.random().toString(36).substring(2, 15);
 
-    // if user is found and password is valid
     // create a token
-    var jwtToken = jwt.sign({ id: user._id }, config.secret, {
-      expiresIn: 60*10 // expires in 10 minutes
+    let encryptedId = encryption.encrypt(String(user._id));
+    var jwtToken = jwt.sign({ id: encryptedId }, config.secret, {
+      expiresIn: 60*5 // expires in 10 minutes
     });
-    var refreshToken = jwt.sign({ id: user._id }, config.secret, {
-      expiresIn: 60*12 // expires in 12 minutes
+    
+    let encryptedLoginId = encryption.encrypt(String(verify_token.uniqueString));
+    var refreshToken = jwt.sign({ id: encryptedLoginId }, config.secret, {
+      expiresIn: 60*6 // expires in 12 minutes
     });
+
 
     Token.create({
       token: jwtToken,
       refreshtoken: refreshToken,
-      user_id: user._id
+      loginId : loginId,
+      user_id: user._id,
+      loginTime: (new Date().getTime()),
     }, function(err, token) {
       if(err) {
         return res.status(500).send({status:"failed to create token", error: err});
       }
       return res.status(200).json({ 
         status: 'success',
-        tokendetails: token, 
+        token: token.token,
+        refreshToken: token.refreshtoken, 
         message: 'login successfull'
       });
     });
@@ -58,9 +70,9 @@ router.get('/logout', function(req, res) {
   res.status(200).send({ auth: false, token: null });
 });
 
-router.get('/me', VerifyToken, function(req, res, next) {
-
-  User.findById(req.userId, { password: 0 }, function (err, user) {
+router.get('/me', verify_token, function(req, res, next) {
+  let decryptedData = encryption.decrypt(String(req.userId));
+  User.findById(Object(decryptedData), { password: 0 }, function (err, user) {
     if (err) return res.status(500).send("There was a problem finding the user.");
     if (!user) return res.status(404).send("No user found.");
     res.status(200).send(user);
@@ -83,30 +95,12 @@ router.post('/register', function(req, res) {
       if(err) {
         return res.status(500).send("There was a problem registering the user.");
       }
-
-      var jwtToken = jwt.sign({ id: user._id }, config.secret, {
-        expiresIn: 60*10 // expires in 10 minutes
-      });
-      var refreshToken = jwt.sign({ id: user._id }, config.secret, {
-        expiresIn: 60*12 // expires in 12 minutes
-      });
-      Token.create({
-        token: jwtToken,
-        refreshtoken: refreshToken,
-        user_id: user._id
-      }, function(err, token) {
-        if(err) {
-          return res.status(500).send({status:"failed to create token", error: err});
-        }
+    
         return res.status(200).json({ 
           status: 'success',
-          tokendetails: token, 
           message: 'User created successfully'
         });
-      });
-      
     });
-    
 });
 
 module.exports = router;
