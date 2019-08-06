@@ -34,14 +34,14 @@ router.post('/login', function(req, res) {
       let loginId = Math.random().toString(36).substring(2, 15) + String(time).substring(2,10) + Math.random().toString(36).substring(2, 15);
 
     // create a token
-    let encryptedId = encryption.encrypt(String(user._id));
+    let encryptedId = encryption.encrypt(config.secret);
     var jwtToken = jwt.sign({ id: encryptedId }, config.secret, {
-      expiresIn: 60*5 // expires in 10 minutes
+      expiresIn: 60*2 // expires in 10 minutes
     });
     
     let encryptedLoginId = encryption.encrypt(String(verify_token.uniqueString));
     var refreshToken = jwt.sign({ id: encryptedLoginId }, config.secret, {
-      expiresIn: 60*6 // expires in 12 minutes
+      expiresIn: 60*3 // expires in 12 minutes
     });
 
 

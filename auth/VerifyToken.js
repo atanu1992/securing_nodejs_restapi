@@ -3,18 +3,23 @@ var config = require('../config'); // get our config file
 var Token = require('../token/token');
 const encryption = require('./encrypt_dycrpt');
 
-function verifyToken(req, res, next) {
-
+var verifyToken = async function(req, res, next) {
+  // console.log('req heders ',req.headers.authorization);
+  // console.log('req heders ',req.headers.authorization1);
+  // console.log('req heders ',req.headers.authorization2);
+  // console.log('req ',req.headers);
   // check header or url parameters or post parameters for token
-  var token = req.headers['x-token'];
-  var refreshtoken = req.headers['x-refresh-token'];
+  var token = req.headers.authorization1;
+  var refreshtoken = req.headers.authorization2;
   if (!token || !refreshtoken) {
     return res.status(403).send({ status: false, message: 'No token provided' });
   }
 
-  let verify_jwt_token = checkAuthToken(token);
+  let verify_jwt_token = await checkAuthToken(token);
+  console.log('verify_jwt_token ',verify_jwt_token);
   if(!verify_jwt_token){
-      let verify_refresh_token = checkAuthToken(refreshtoken);
+      let verify_refresh_token = await checkAuthToken(refreshtoken);
+      console.log('verify_refresh_token ',verify_refresh_token);
       if(!verify_refresh_token) {
         return res.status(403).send({ status: false, message: 'Unauthorized access' });
       }
@@ -60,18 +65,23 @@ checkRefreshTokenAuthentication = (token,res) => {
   });
 }
 
-function checkAuthToken(token) {
+async function checkAuthToken(token) {
+  console.log('check ',token);
   jwt.verify(token, config.secret, function(err, decoded) {
     if(err) { return false; }
     else { 
-      let check_exist = checkTokenExists(token);
-      if(!check_exist) return false;
-      else return true;
+      Token.findOne({
+        token: token
+      }, function(err, token) {
+        if(err) return false;
+        else return true;
+      });
      }
   });
 }
 
- checkTokenExists = (token) => {
+function checkTokenExists(token) {
+  console.log('check auth ',token);
   return Token.findOne({
     token: token
   }, function(err, token) {
@@ -80,12 +90,9 @@ function checkAuthToken(token) {
   });
 }
 
-// async function createToken(refreshtoken){
+// function createToken(refreshtoken){
 //   jwt.verify(refreshtoken, config.secret, function(err, decoded) {
 //     let decryptedData = encryption.decrypt(String(decoded.loginId));
 //   });
 // }
-
-
-
 module.exports = verifyToken;
