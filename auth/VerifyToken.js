@@ -4,10 +4,6 @@ var Token = require('../token/token');
 const encryption = require('./encrypt_dycrpt');
 
 var verifyToken = async function(req, res, next) {
-  // console.log('req heders ',req.headers.authorization);
-  // console.log('req heders ',req.headers.authorization1);
-  // console.log('req heders ',req.headers.authorization2);
-  // console.log('req ',req.headers);
   // check header or url parameters or post parameters for token
   var token = req.headers.authorization1;
   var refreshtoken = req.headers.authorization2;
